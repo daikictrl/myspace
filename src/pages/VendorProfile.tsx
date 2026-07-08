@@ -105,8 +105,8 @@ export default function VendorProfile() {
         .insert({
           client_id: session.user.id,
           vendor_id: id,
-          type: bookingType,
-          message: bookingMessage,
+          type: "vendor",
+          message: `Event Type: ${bookingType}\n\nDetails: ${bookingMessage}`,
           status: "pending"
         });
 
