@@ -9,11 +9,12 @@ export default function Contact() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [message, setMessage] = useState("");
 
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const messageString = `Hello MySpace Team,\n\nName: ${firstName} ${lastName}\nEmail: ${email}\n\nMessage:\n${message}`;
+    const messageString = `Hello MySpace Team,\n\nName: ${firstName} ${lastName}\nEmail: ${email}\nWhatsApp: ${whatsapp}\n\nMessage:\n${message}`;
     const encodedMessage = encodeURIComponent(messageString);
     window.open(`https://wa.me/+23798731685?text=${encodedMessage}`, "_blank");
   };
@@ -114,6 +115,18 @@ export default function Contact() {
                   className="h-12 rounded-2xl bg-neutral-50" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700">WhatsApp Number</label>
+                <Input 
+                  type="text" 
+                  placeholder="e.g. 237699112233" 
+                  className="h-12 rounded-2xl bg-neutral-50" 
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
                   required
                 />
               </div>
