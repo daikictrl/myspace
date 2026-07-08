@@ -1656,7 +1656,7 @@ export default function VendorsDashboard() {
               ) : (
                 <div className="divide-y divide-neutral-800">
                   {bookings.map((b) => {
-                    const messageString = `Hi ${b.client_name}, this is ${vendor.business_name} responding to your request for ${b.event_title}!`;
+                    const messageString = `Hi, this is ${vendor.business_name} responding to your request for ${b.event_title}!`;
                     const encodedMessage = encodeURIComponent(messageString);
                     const whatsappUrl = `https://wa.me/${b.client_phone}?text=${encodedMessage}`;
 
