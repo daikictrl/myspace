@@ -49,7 +49,7 @@ export default function Contact() {
                     <Mail className="w-6 h-6 text-orange-400 mt-1 shrink-0" />
                     <div>
                       <p className="font-semibold mb-1">Email Us</p>
-                      <p className="text-neutral-300">support@myspace.com</p>
+                      <p className="text-neutral-300">lornalouisa@gmail.com</p>
                     </div>
                   </div>
                   
@@ -57,7 +57,7 @@ export default function Contact() {
                     <Phone className="w-6 h-6 text-orange-400 mt-1 shrink-0" />
                     <div>
                       <p className="font-semibold mb-1">Call Us</p>
-                      <p className="text-neutral-300">+1 (555) 123-4567</p>
+                      <p className="text-neutral-300">+237 698 73 16 85</p>
                     </div>
                   </div>
                   
@@ -66,8 +66,7 @@ export default function Contact() {
                     <div>
                       <p className="font-semibold mb-1">Headquarters</p>
                       <p className="text-neutral-300 leading-relaxed">
-                        123 Event Street, Suite 400<br />
-                        New York, NY 10001
+                        Douala, Cameroon<br />
                       </p>
                     </div>
                   </div>
