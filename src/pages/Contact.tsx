@@ -1,4 +1,4 @@
-import React from "react";
+import { useState } from "react";
 import { MessageCircle, Mail, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 
 export default function Contact() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+
   const handleWhatsAppSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would open WhatsApp with a pre-filled message
-    window.open("https://wa.me/1234567890?text=Hello%20MySpace%20Team,%20I%20have%20an%20inquiry.", "_blank");
+    const messageString = `Hello MySpace Team,\n\nName: ${firstName} ${lastName}\nEmail: ${email}\n\nMessage:\n${message}`;
+    const encodedMessage = encodeURIComponent(messageString);
+    window.open(`https://wa.me/+23798731685?text=${encodedMessage}`, "_blank");
   };
 
   return (
@@ -80,17 +86,36 @@ export default function Contact() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-neutral-700">First Name</label>
-                  <Input placeholder="John" className="h-12 rounded-2xl bg-neutral-50" />
+                  <Input 
+                    placeholder="John" 
+                    className="h-12 rounded-2xl bg-neutral-50" 
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-neutral-700">Last Name</label>
-                  <Input placeholder="Doe" className="h-12 rounded-2xl bg-neutral-50" />
+                  <Input 
+                    placeholder="Doe" 
+                    className="h-12 rounded-2xl bg-neutral-50" 
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
               
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-700">Email Address</label>
-                <Input type="email" placeholder="john@example.com" className="h-12 rounded-2xl bg-neutral-50" />
+                <Input 
+                  type="email" 
+                  placeholder="john@example.com" 
+                  className="h-12 rounded-2xl bg-neutral-50" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
               
               <div className="space-y-2">
@@ -98,6 +123,9 @@ export default function Contact() {
                 <Textarea 
                   placeholder="How can we help you?" 
                   className="min-h-[150px] rounded-2xl bg-neutral-50 resize-none"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  required
                 />
               </div>
               
