@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MapPin, Star, MessageCircle, ArrowLeft, Check, Grid, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -12,9 +13,10 @@ export default function VendorProfile() {
   const [loading, setLoading] = useState(true);
 
   // Form states
-  const [bookingMessage, setBookingMessage] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [bookingType, setBookingType] = useState("Wedding");
   const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [hasBooked, setHasBooked] = useState(false);
 
   const [clientRating, setClientRating] = useState(5);
   const [clientComment, setClientComment] = useState("");
@@ -73,6 +75,29 @@ export default function VendorProfile() {
       };
 
       setVendor(mappedVendor);
+
+      // Fetch user session details and bookings status
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: bookingsData } = await supabase
+          .from("bookings")
+          .select("id")
+          .eq("client_id", session.user.id)
+          .eq("vendor_id", id)
+          .limit(1);
+
+        setHasBooked(bookingsData && bookingsData.length > 0);
+
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("whatsapp_number")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profileData?.whatsapp_number) {
+          setClientPhone(profileData.whatsapp_number);
+        }
+      }
     } catch (err) {
       console.error("Error loading vendor profile:", err);
       setVendor(null);
@@ -93,26 +118,35 @@ export default function VendorProfile() {
       return;
     }
 
-    if (!bookingMessage.trim()) {
-      toast.error("Please add request details.");
+    if (!clientPhone.trim()) {
+      toast.error("Please provide your WhatsApp number.");
       return;
     }
 
     setIsBookingLoading(true);
     try {
+      // 1. Update the client's profile with their WhatsApp number
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .update({ whatsapp_number: clientPhone })
+        .eq("id", session.user.id);
+
+      if (profileErr) throw profileErr;
+
+      // 2. Insert the booking record
       const { error } = await supabase
         .from("bookings")
         .insert({
           client_id: session.user.id,
           vendor_id: id,
           type: "vendor",
-          message: `Event Type: ${bookingType}\n\nDetails: ${bookingMessage}`,
+          message: `Event Type: ${bookingType}\n\nClient WhatsApp: ${clientPhone}`,
           status: "pending"
         });
 
       if (error) throw error;
       toast.success("Booking request sent successfully!");
-      setBookingMessage("");
+      setHasBooked(true);
     } catch (err: any) {
       toast.error(err.message || "Failed to send booking request.");
     } finally {
@@ -293,50 +327,61 @@ export default function VendorProfile() {
               </div>
 
               {/* Add Review Form */}
-              <div className="pt-8 border-t border-neutral-100">
-                <h4 className="text-lg font-bold text-neutral-900 mb-4">Write a Review</h4>
-                <form onSubmit={handleSendReview} className="space-y-4">
-                  <div>
-                    <label className="text-xs font-semibold text-neutral-500 block mb-2">Your Rating</label>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setClientRating(star)}
-                          className="focus:outline-none"
-                        >
-                          <Star 
-                            className={`w-6 h-6 ${
-                              star <= clientRating 
-                                ? 'fill-yellow-400 text-yellow-400' 
-                                : 'text-neutral-200 hover:text-yellow-200'
-                            } transition-colors`} 
-                          />
-                        </button>
-                      ))}
+              {hasBooked ? (
+                <div className="pt-8 border-t border-neutral-100">
+                  <h4 className="text-lg font-bold text-neutral-900 mb-4">Write a Review</h4>
+                  <form onSubmit={handleSendReview} className="space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-neutral-500 block mb-2">Your Rating</label>
+                      <div className="flex gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setClientRating(star)}
+                            className="focus:outline-none"
+                          >
+                            <Star 
+                              className={`w-6 h-6 ${
+                                star <= clientRating 
+                                  ? 'fill-yellow-400 text-yellow-400' 
+                                  : 'text-neutral-200 hover:text-yellow-200'
+                              } transition-colors`} 
+                            />
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your Feedback</label>
-                    <textarea
-                      placeholder="How was your experience working with this vendor?"
-                      value={clientComment}
-                      onChange={e => setClientComment(e.target.value)}
-                      className="w-full p-3.5 rounded-2xl bg-neutral-50 border border-neutral-100 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-orange-500 h-24 resize-none"
-                      required
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    disabled={isReviewLoading}
-                    className="rounded-2xl px-6 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-sm h-11"
-                  >
-                    {isReviewLoading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Submit Review
-                  </Button>
-                </form>
-              </div>
+                    <div>
+                      <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your Feedback</label>
+                      <textarea
+                        placeholder="How was your experience working with this vendor?"
+                        value={clientComment}
+                        onChange={e => setClientComment(e.target.value)}
+                        className="w-full p-3.5 rounded-2xl bg-neutral-50 border border-neutral-100 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-orange-500 h-24 resize-none"
+                        required
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      disabled={isReviewLoading}
+                      className="rounded-2xl px-6 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-sm h-11"
+                    >
+                      {isReviewLoading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Submit Review
+                    </Button>
+                  </form>
+                </div>
+              ) : (
+                <div className="pt-8 border-t border-neutral-100 text-center py-6 bg-neutral-50 rounded-[2rem] border border-dashed border-neutral-200">
+                  <p className="text-sm font-semibold text-neutral-500">
+                    Only clients who have requested a booking with this vendor can leave a review.
+                  </p>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Send a booking request on the right side to unlock review access.
+                  </p>
+                </div>
+              )}
             </motion.div>
           </div>
 
@@ -393,13 +438,16 @@ export default function VendorProfile() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Request Details</label>
-                    <textarea
-                      placeholder="Share details about your date, venue, guest count..."
-                      value={bookingMessage}
-                      onChange={e => setBookingMessage(e.target.value)}
-                      className="w-full p-3 rounded-xl bg-neutral-50 border border-neutral-100 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-orange-500 h-24 resize-none"
+                    <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your WhatsApp Number</label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. 237699112233"
+                      value={clientPhone}
+                      onChange={e => setClientPhone(e.target.value)}
+                      className="bg-neutral-50 border-neutral-100 text-neutral-800 placeholder-neutral-400 focus-visible:ring-orange-500 rounded-xl"
+                      required
                     />
+                    <span className="text-[10px] text-neutral-400 mt-1 block">Include country code, no spaces or + sign</span>
                   </div>
                   <Button 
                     type="submit" 
