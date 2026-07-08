@@ -4,74 +4,156 @@ import { MapPin, Star, MessageCircle, ArrowLeft, Check, Grid, RefreshCw } from "
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export default function VendorProfile() {
   const { id } = useParams<{ id: string }>();
   const [vendor, setVendor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadVendorData() {
-      if (!id) return;
-      try {
-        const { data: vData, error: vError } = await supabase
-          .from("vendors")
-          .select(`
-            *,
-            profiles (
-              whatsapp_number,
-              full_name
-            )
-          `)
-          .eq("id", id)
-          .single();
+  // Form states
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [bookingType, setBookingType] = useState("Wedding");
+  const [isBookingLoading, setIsBookingLoading] = useState(false);
 
-        if (vError) throw vError;
+  const [clientRating, setClientRating] = useState(5);
+  const [clientComment, setClientComment] = useState("");
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
 
-        const { data: rData } = await supabase
-          .from("reviews")
-          .select(`
-            id, rating, comment, created_at,
-            profiles (
-              full_name
-            )
-          `)
-          .eq("vendor_id", id);
+  async function loadVendorData() {
+    if (!id) return;
+    try {
+      const { data: vData, error: vError } = await supabase
+        .from("vendors")
+        .select(`
+          *,
+          profiles (
+            whatsapp_number,
+            full_name
+          )
+        `)
+        .eq("id", id)
+        .single();
 
-        const mappedReviews = (rData || []).map((r: any) => ({
-          author: r.profiles?.full_name || "Anonymous Client",
-          rating: r.rating || 5,
-          text: r.comment || "",
-          date: r.created_at ? new Date(r.created_at).toLocaleDateString() : "Recently"
-        }));
+      if (vError) throw vError;
 
-        const mappedVendor = {
-          id: vData.id,
-          name: vData.business_name || "Unknown Business",
-          category: vData.service_categories?.[0] || "Uncategorized",
-          description: vData.description || "",
-          location: vData.service_areas?.join(", ") || "Cameroon",
-          startingPrice: vData.pricing_range || "Contact",
-          logo: vData.logo_url || "https://images.unsplash.com/photo-1554046920-90dcac824b20?auto=format&fit=crop&q=80&w=150",
-          rating: vData.rating || 5.0,
-          reviewsCount: vData.reviews_count || 0,
-          portfolio: vData.portfolio && vData.portfolio.length > 0 ? vData.portfolio : [vData.cover_image_url || "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800"],
-          servicesOffered: vData.services_offered && vData.services_offered.length > 0 ? vData.services_offered : vData.service_categories || [],
-          packages: vData.packages || [],
-          reviews: mappedReviews,
-          phone: vData.profiles?.whatsapp_number || ""
-        };
+      const { data: rData } = await supabase
+        .from("reviews")
+        .select(`
+          id, rating, comment, created_at,
+          profiles (
+            full_name
+          )
+        `)
+        .eq("vendor_id", id)
+        .order("created_at", { ascending: false });
 
-        setVendor(mappedVendor);
-      } catch (err) {
-        console.error("Error loading vendor profile:", err);
-        setVendor(null);
-      } finally {
-        setLoading(false);
-      }
+      const mappedReviews = (rData || []).map((r: any) => ({
+        author: r.profiles?.full_name || "Anonymous Client",
+        rating: r.rating || 5,
+        text: r.comment || "",
+        date: r.created_at ? new Date(r.created_at).toLocaleDateString() : "Recently"
+      }));
+
+      const mappedVendor = {
+        id: vData.id,
+        name: vData.business_name || "Unknown Business",
+        category: vData.service_categories?.[0] || "Uncategorized",
+        description: vData.description || "",
+        location: vData.service_areas?.join(", ") || "Cameroon",
+        startingPrice: vData.pricing_range || "Contact",
+        logo: vData.logo_url || "https://images.unsplash.com/photo-1554046920-90dcac824b20?auto=format&fit=crop&q=80&w=150",
+        rating: vData.rating || 5.0,
+        reviewsCount: vData.reviews_count || 0,
+        portfolio: vData.portfolio && vData.portfolio.length > 0 ? vData.portfolio : [vData.cover_image_url || "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800"],
+        servicesOffered: vData.services_offered && vData.services_offered.length > 0 ? vData.services_offered : vData.service_categories || [],
+        packages: vData.packages || [],
+        reviews: mappedReviews,
+        phone: vData.profiles?.whatsapp_number || ""
+      };
+
+      setVendor(mappedVendor);
+    } catch (err) {
+      console.error("Error loading vendor profile:", err);
+      setVendor(null);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     loadVendorData();
   }, [id]);
+
+  const handleSendBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("You must be logged in to send a booking request.");
+      return;
+    }
+
+    if (!bookingMessage.trim()) {
+      toast.error("Please add request details.");
+      return;
+    }
+
+    setIsBookingLoading(true);
+    try {
+      const { error } = await supabase
+        .from("bookings")
+        .insert({
+          client_id: session.user.id,
+          vendor_id: id,
+          type: bookingType,
+          message: bookingMessage,
+          status: "pending"
+        });
+
+      if (error) throw error;
+      toast.success("Booking request sent successfully!");
+      setBookingMessage("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send booking request.");
+    } finally {
+      setIsBookingLoading(false);
+    }
+  };
+
+  const handleSendReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("You must be logged in to leave a review.");
+      return;
+    }
+
+    if (!clientComment.trim()) {
+      toast.error("Please add a comment.");
+      return;
+    }
+
+    setIsReviewLoading(true);
+    try {
+      const { error } = await supabase
+        .from("reviews")
+        .insert({
+          client_id: session.user.id,
+          vendor_id: id,
+          rating: clientRating,
+          comment: clientComment
+        });
+
+      if (error) throw error;
+      toast.success("Review submitted! Thank you.");
+      setClientComment("");
+      await loadVendorData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit review.");
+    } finally {
+      setIsReviewLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -181,27 +263,79 @@ export default function VendorProfile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white rounded-[2rem] p-8 shadow-sm border border-neutral-100"
+              className="bg-white rounded-[2rem] p-8 shadow-sm border border-neutral-100 space-y-8"
             >
-              <h3 className="text-xl font-bold text-neutral-900 mb-6 flex items-center gap-2">
-                <Star className="w-5 h-5 text-orange-600" />
-                Client Reviews
-              </h3>
-              <div className="space-y-6">
-                {vendor.reviews.map((review, i) => (
-                  <div key={i} className="pb-6 border-b border-neutral-100 last:border-0 last:pb-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-bold text-neutral-900">{review.author}</div>
-                      <div className="text-sm text-neutral-500">{review.date}</div>
-                    </div>
-                    <div className="flex items-center mb-3">
-                      {[...Array(5)].map((_, j) => (
-                        <Star key={j} className={`w-4 h-4 ${j < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-neutral-200'}`} />
+              <div>
+                <h3 className="text-xl font-bold text-neutral-900 mb-6 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-orange-600" />
+                  Client Reviews
+                </h3>
+                <div className="space-y-6">
+                  {vendor.reviews.length === 0 ? (
+                    <p className="text-neutral-500 italic text-sm">No reviews yet. Be the first to leave one!</p>
+                  ) : (
+                    vendor.reviews.map((review: any, i: number) => (
+                      <div key={i} className="pb-6 border-b border-neutral-100 last:border-0 last:pb-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-bold text-neutral-900">{review.author}</div>
+                          <div className="text-sm text-neutral-500">{review.date}</div>
+                        </div>
+                        <div className="flex items-center mb-3">
+                          {[...Array(5)].map((_, j) => (
+                            <Star key={j} className={`w-4 h-4 ${j < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-neutral-200'}`} />
+                          ))}
+                        </div>
+                        <p className="text-neutral-600 italic">"{review.text}"</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Add Review Form */}
+              <div className="pt-8 border-t border-neutral-100">
+                <h4 className="text-lg font-bold text-neutral-900 mb-4">Write a Review</h4>
+                <form onSubmit={handleSendReview} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-500 block mb-2">Your Rating</label>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setClientRating(star)}
+                          className="focus:outline-none"
+                        >
+                          <Star 
+                            className={`w-6 h-6 ${
+                              star <= clientRating 
+                                ? 'fill-yellow-400 text-yellow-400' 
+                                : 'text-neutral-200 hover:text-yellow-200'
+                            } transition-colors`} 
+                          />
+                        </button>
                       ))}
                     </div>
-                    <p className="text-neutral-600 italic">"{review.text}"</p>
                   </div>
-                ))}
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your Feedback</label>
+                    <textarea
+                      placeholder="How was your experience working with this vendor?"
+                      value={clientComment}
+                      onChange={e => setClientComment(e.target.value)}
+                      className="w-full p-3.5 rounded-2xl bg-neutral-50 border border-neutral-100 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-orange-500 h-24 resize-none"
+                      required
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={isReviewLoading}
+                    className="rounded-2xl px-6 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-sm h-11"
+                  >
+                    {isReviewLoading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Submit Review
+                  </Button>
+                </form>
               </div>
             </motion.div>
           </div>
@@ -233,6 +367,49 @@ export default function VendorProfile() {
                   </Button>
                 </a>
                 <p className="text-xs text-center text-neutral-400 mt-4">Replies usually within an hour</p>
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.05 }}
+                className="bg-white rounded-[2rem] p-6 shadow-sm border border-neutral-100"
+              >
+                <h3 className="text-lg font-bold text-neutral-900 mb-4">Book via MySpace</h3>
+                <form onSubmit={handleSendBooking} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Event Type</label>
+                    <select
+                      value={bookingType}
+                      onChange={e => setBookingType(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl bg-neutral-50 border border-neutral-100 text-sm font-medium text-neutral-800 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    >
+                      <option value="Wedding">Wedding</option>
+                      <option value="Birthday Party">Birthday Party</option>
+                      <option value="Corporate Event">Corporate Event</option>
+                      <option value="Anniversary">Anniversary</option>
+                      <option value="Concert/Festival">Concert/Festival</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Request Details</label>
+                    <textarea
+                      placeholder="Share details about your date, venue, guest count..."
+                      value={bookingMessage}
+                      onChange={e => setBookingMessage(e.target.value)}
+                      className="w-full p-3 rounded-xl bg-neutral-50 border border-neutral-100 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-orange-500 h-24 resize-none"
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={isBookingLoading}
+                    className="w-full rounded-2xl h-11 bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm shadow-md"
+                  >
+                    {isBookingLoading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Send Booking Request
+                  </Button>
+                </form>
               </motion.div>
 
               <motion.div 
