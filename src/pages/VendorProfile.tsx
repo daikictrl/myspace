@@ -51,12 +51,22 @@ export default function VendorProfile() {
         .eq("vendor_id", id)
         .order("created_at", { ascending: false });
 
-      const mappedReviews = (rData || []).map((r: any) => ({
-        author: r.profiles?.full_name || "Anonymous Client",
-        rating: r.rating || 5,
-        text: r.comment || "",
-        date: r.created_at ? new Date(r.created_at).toLocaleDateString() : "Recently"
-      }));
+      const mappedReviews = (rData || []).map((r: any) => {
+        let parsedAuthor = "";
+        let parsedText = r.comment || "";
+        if (r.comment && r.comment.startsWith("Author:")) {
+          const authorMatch = r.comment.match(/^Author:\s*(.*)/);
+          const commentMatch = r.comment.match(/Comment:\s*([\s\S]*)/);
+          if (authorMatch) parsedAuthor = authorMatch[1].trim();
+          if (commentMatch) parsedText = commentMatch[1].trim();
+        }
+        return {
+          author: r.profiles?.full_name || parsedAuthor || "Anonymous Client",
+          rating: r.rating || 5,
+          text: parsedText,
+          date: r.created_at ? new Date(r.created_at).toLocaleDateString() : "Recently"
+        };
+      });
 
       const mappedVendor = {
         id: vData.id,
@@ -77,31 +87,9 @@ export default function VendorProfile() {
 
       setVendor(mappedVendor);
 
-      // Fetch user session details and bookings status
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: bookingsData } = await supabase
-          .from("bookings")
-          .select("id")
-          .eq("client_id", session.user.id)
-          .eq("vendor_id", id)
-          .limit(1);
-
-        setHasBooked(bookingsData && bookingsData.length > 0);
-
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("whatsapp_number, full_name")
-          .eq("id", session.user.id)
-          .single();
-
-        if (profileData?.full_name) {
-          setClientName(profileData.full_name);
-        }
-        if (profileData?.whatsapp_number) {
-          setClientPhone(profileData.whatsapp_number);
-        }
-      }
+      // Check if user has booked this vendor from localStorage
+      const hasLocalBooking = localStorage.getItem(`has_booked_${id}`) === "true";
+      setHasBooked(hasLocalBooking);
     } catch (err) {
       console.error("Error loading vendor profile:", err);
       setVendor(null);
@@ -129,26 +117,11 @@ export default function VendorProfile() {
 
     setIsBookingLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        // 1. Update the client's profile with their WhatsApp number and full name
-        const { error: profileErr } = await supabase
-          .from("profiles")
-          .update({ 
-            whatsapp_number: clientPhone,
-            full_name: clientName
-          })
-          .eq("id", session.user.id);
-
-        if (profileErr) throw profileErr;
-      }
-
-      // 2. Insert the booking record (client_id is null for guests)
+      // 1. Insert the booking record (client_id is null for guests)
       const { error } = await supabase
         .from("bookings")
         .insert({
-          client_id: session ? session.user.id : null,
+          client_id: null,
           vendor_id: id,
           type: "vendor",
           message: `Client Name: ${clientName}\nClient WhatsApp: ${clientPhone}\nEvent Type: ${bookingType}`,
@@ -157,6 +130,9 @@ export default function VendorProfile() {
 
       if (error) throw error;
       toast.success("Booking request sent successfully!");
+      
+      // Save to localStorage so they can leave a review on this browser session
+      localStorage.setItem(`has_booked_${id}`, "true");
       setHasBooked(true);
     } catch (err: any) {
       toast.error(err.message || "Failed to send booking request.");
@@ -167,9 +143,9 @@ export default function VendorProfile() {
 
   const handleSendReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error("You must be logged in to leave a review.");
+
+    if (!clientName.trim()) {
+      toast.error("Please provide your name.");
       return;
     }
 
@@ -180,13 +156,14 @@ export default function VendorProfile() {
 
     setIsReviewLoading(true);
     try {
+      const formattedComment = `Author: ${clientName}\nComment: ${clientComment}`;
       const { error } = await supabase
         .from("reviews")
         .insert({
-          client_id: session.user.id,
+          client_id: null,
           vendor_id: id,
           rating: clientRating,
-          comment: clientComment
+          comment: formattedComment
         });
 
       if (error) throw error;
@@ -362,6 +339,17 @@ export default function VendorProfile() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your Name</label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. John Doe"
+                        value={clientName}
+                        onChange={e => setClientName(e.target.value)}
+                        className="bg-neutral-50 border-neutral-100 text-neutral-800 placeholder-neutral-400 focus-visible:ring-orange-500 rounded-xl mb-4"
+                        required
+                      />
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your Feedback</label>
