@@ -134,6 +134,8 @@ export default function VendorProfile() {
       // Save to localStorage so they can leave a review on this browser session
       localStorage.setItem(`has_booked_${id}`, "true");
       setHasBooked(true);
+      setClientName("");
+      setClientPhone("");
     } catch (err: any) {
       toast.error(err.message || "Failed to send booking request.");
     } finally {
@@ -169,6 +171,7 @@ export default function VendorProfile() {
       if (error) throw error;
       toast.success("Review submitted! Thank you.");
       setClientComment("");
+      setClientName("");
       await loadVendorData();
     } catch (err: any) {
       toast.error(err.message || "Failed to submit review.");
