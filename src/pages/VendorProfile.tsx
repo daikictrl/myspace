@@ -13,6 +13,7 @@ export default function VendorProfile() {
   const [loading, setLoading] = useState(true);
 
   // Form states
+  const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [bookingType, setBookingType] = useState("Wedding");
   const [isBookingLoading, setIsBookingLoading] = useState(false);
@@ -90,10 +91,13 @@ export default function VendorProfile() {
 
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("whatsapp_number")
+          .select("whatsapp_number, full_name")
           .eq("id", session.user.id)
           .single();
 
+        if (profileData?.full_name) {
+          setClientName(profileData.full_name);
+        }
         if (profileData?.whatsapp_number) {
           setClientPhone(profileData.whatsapp_number);
         }
@@ -112,9 +116,9 @@ export default function VendorProfile() {
 
   const handleSendBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error("You must be logged in to send a booking request.");
+
+    if (!clientName.trim()) {
+      toast.error("Please provide your name.");
       return;
     }
 
@@ -125,22 +129,29 @@ export default function VendorProfile() {
 
     setIsBookingLoading(true);
     try {
-      // 1. Update the client's profile with their WhatsApp number
-      const { error: profileErr } = await supabase
-        .from("profiles")
-        .update({ whatsapp_number: clientPhone })
-        .eq("id", session.user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // 1. Update the client's profile with their WhatsApp number and full name
+        const { error: profileErr } = await supabase
+          .from("profiles")
+          .update({ 
+            whatsapp_number: clientPhone,
+            full_name: clientName
+          })
+          .eq("id", session.user.id);
 
-      if (profileErr) throw profileErr;
+        if (profileErr) throw profileErr;
+      }
 
-      // 2. Insert the booking record
+      // 2. Insert the booking record (client_id is null for guests)
       const { error } = await supabase
         .from("bookings")
         .insert({
-          client_id: session.user.id,
+          client_id: session ? session.user.id : null,
           vendor_id: id,
           type: "vendor",
-          message: `Event Type: ${bookingType}\n\nClient WhatsApp: ${clientPhone}`,
+          message: `Client Name: ${clientName}\nClient WhatsApp: ${clientPhone}\nEvent Type: ${bookingType}`,
           status: "pending"
         });
 
@@ -436,6 +447,17 @@ export default function VendorProfile() {
                       <option value="Concert/Festival">Concert/Festival</option>
                       <option value="Other">Other</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your Full Name</label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={clientName}
+                      onChange={e => setClientName(e.target.value)}
+                      className="bg-neutral-50 border-neutral-100 text-neutral-800 placeholder-neutral-400 focus-visible:ring-orange-500 rounded-xl mb-4"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-neutral-500 block mb-1.5">Your WhatsApp Number</label>

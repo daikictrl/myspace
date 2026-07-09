@@ -206,19 +206,35 @@ export default function VendorsDashboard() {
           eData?.forEach(e => { eventsMap[e.id] = e; });
         }
 
-        const mapped: Booking[] = bookingsData.map(b => ({
-          id: b.id,
-          status: b.status,
-          message: b.message || "",
-          created_at: b.created_at,
-          type: b.type,
-          client_name: clientsMap[b.client_id]?.full_name || "Unknown Client",
-          client_phone: clientsMap[b.client_id]?.whatsapp_number || "",
-          event_title: eventsMap[b.event_id]?.title || "Private Event",
-          event_date: eventsMap[b.event_id]?.date || "",
-          event_location: eventsMap[b.event_id]?.location || "",
-          event_type: eventsMap[b.event_id]?.event_type || ""
-        }));
+        const mapped: Booking[] = bookingsData.map(b => {
+          let parsedName = "";
+          let parsedPhone = "";
+          let parsedEventType = "";
+          
+          if (b.message) {
+            const nameMatch = b.message.match(/Client Name:\s*(.*)/i);
+            const phoneMatch = b.message.match(/Client WhatsApp:\s*(.*)/i);
+            const eventTypeMatch = b.message.match(/Event Type:\s*(.*)/i);
+            
+            if (nameMatch) parsedName = nameMatch[1].trim();
+            if (phoneMatch) parsedPhone = phoneMatch[1].trim();
+            if (eventTypeMatch) parsedEventType = eventTypeMatch[1].trim();
+          }
+
+          return {
+            id: b.id,
+            status: b.status,
+            message: b.message || "",
+            created_at: b.created_at,
+            type: b.type,
+            client_name: clientsMap[b.client_id]?.full_name || parsedName || "Guest Client",
+            client_phone: clientsMap[b.client_id]?.whatsapp_number || parsedPhone || "",
+            event_title: eventsMap[b.event_id]?.title || (parsedEventType ? `${parsedEventType} Request` : "Private Event"),
+            event_date: eventsMap[b.event_id]?.date || "",
+            event_location: eventsMap[b.event_id]?.location || "",
+            event_type: eventsMap[b.event_id]?.event_type || parsedEventType || "Event"
+          };
+        });
 
         // Sort by date created desc
         mapped.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
