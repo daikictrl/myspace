@@ -11,21 +11,30 @@ import { supabase } from "@/lib/supabase";
 export default function Vendors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const queryParam = searchParams.get("query");
+  const locationParam = searchParams.get("location");
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchLocation, setSearchLocation] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   const [vendorsList, setVendorsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Sync category param with selectedCategory state
+  // Sync url params with page states
   useEffect(() => {
     if (categoryParam) {
       setSelectedCategory(categoryParam);
     } else {
       setSelectedCategory("All");
     }
-  }, [categoryParam]);
+    if (queryParam) {
+      setSearchTerm(queryParam);
+    }
+    if (locationParam) {
+      setSearchLocation(locationParam);
+    }
+  }, [categoryParam, queryParam, locationParam]);
 
   useEffect(() => {
     async function fetchVendors() {
@@ -82,10 +91,14 @@ export default function Vendors() {
   };
 
   const filteredVendors = vendorsList.filter(vendor => {
-    const matchesSearch = vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          vendor.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || 
+                          vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          vendor.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          vendor.serviceCategories?.some((c: string) => c.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesLocation = !searchLocation || 
+                            vendor.location.toLowerCase().includes(searchLocation.toLowerCase());
     const matchesCategory = selectedCategory === "All" || (vendor.serviceCategories && vendor.serviceCategories.includes(selectedCategory));
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesLocation && matchesCategory;
   });
 
   return (
@@ -102,14 +115,25 @@ export default function Vendors() {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
               <Input 
                 type="text" 
-                placeholder="Search by name or location..." 
+                placeholder="Search by name or category..." 
                 className="pl-10 h-10 text-sm rounded-full bg-neutral-100/80 border-transparent focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-orange-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
+            <div className="w-full sm:w-48 relative shrink-0">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <Input 
+                type="text" 
+                placeholder="Location..." 
+                className="pl-10 h-10 text-sm rounded-full bg-neutral-100/80 border-transparent focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-orange-500"
+                value={searchLocation}
+                onChange={(e) => setSearchLocation(e.target.value)}
+              />
+            </div>
             
-            <div className="w-full sm:w-56 relative shrink-0">
+            <div className="w-full sm:w-48 relative shrink-0">
               <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
               <select 
                 className="w-full h-10 pl-10 pr-8 rounded-full bg-neutral-100/80 border-transparent focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none appearance-none text-sm font-medium text-neutral-700 transition-colors"

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Search, MapPin, CheckCircle2, MessageCircle, Star, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +10,24 @@ import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [searchService, setSearchService] = useState("");
+  const [searchLocation, setSearchLocation] = useState("");
   const [featuredVendors, setFeaturedVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const popularServices = servicesData.slice(0, 4);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchService.trim()) {
+      params.set("query", searchService.trim());
+    }
+    if (searchLocation.trim()) {
+      params.set("location", searchLocation.trim());
+    }
+    navigate(`/explore-vendors?${params.toString()}`);
+  };
 
   useEffect(() => {
     async function loadFeatured() {
@@ -91,7 +106,8 @@ export default function Home() {
             Discover, compare, and connect directly with the best vendors for weddings, parties, and corporate events.
           </motion.p>
 
-          <motion.div 
+          <motion.form 
+            onSubmit={handleSearch}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -103,6 +119,8 @@ export default function Home() {
                 type="text" 
                 placeholder="What service are you looking for?" 
                 className="border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-base px-3"
+                value={searchService}
+                onChange={(e) => setSearchService(e.target.value)}
               />
             </div>
             <div className="hidden md:block w-px h-8 bg-neutral-200" />
@@ -112,12 +130,14 @@ export default function Home() {
                 type="text" 
                 placeholder="Where?" 
                 className="border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-base px-3"
+                value={searchLocation}
+                onChange={(e) => setSearchLocation(e.target.value)}
               />
             </div>
-            <Button size="lg" className="w-full md:w-auto rounded-full px-8 text-base h-12">
+            <Button type="submit" size="lg" className="w-full md:w-auto rounded-full px-8 text-base h-12">
               Search
             </Button>
-          </motion.div>
+          </motion.form>
 
           {/* Stats */}
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto border-t border-white/20 pt-10">
