@@ -95,7 +95,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-6xl lg:text-7xl font-bold text-white max-w-4xl mx-auto tracking-tight"
           >
-            Craft Your Perfect Event with Top Professionals
+            Find a Plece, Bring Life to Your Ideas
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
